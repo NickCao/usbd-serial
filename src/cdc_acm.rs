@@ -3,6 +3,7 @@ use core::mem;
 use usb_device::class_prelude::*;
 use usb_device::descriptor::lang_id::LangID;
 use usb_device::device::DEFAULT_ALTERNATE_SETTING;
+use usb_device::endpoint::{Endpoint, EndpointDirection};
 use usb_device::Result;
 
 /// This should be used as `device_class` when building the `UsbDevice`.
@@ -39,10 +40,10 @@ const REQ_SET_CONTROL_LINE_STATE: u8 = 0x22;
 ///   host operating system until a subsequent shorter packet is sent. A zero-length packet (ZLP)
 ///   can be sent if there is no other data to send. This is because USB bulk transactions must be
 ///   terminated with a short packet, even if the bulk endpoint is used for stream-like data.
-pub struct CdcAcmClass<'a, B: UsbBus> {
+pub struct CdcAcmClass<'a, B: UsbBus, C: EndpointDirection> {
     comm_if: InterfaceNumber,
     comm_if_name: Option<(StringIndex, &'static str)>,
-    comm_ep: EndpointIn<'a, B>,
+    comm_ep: Endpoint<'a, B, C>,
     data_if: InterfaceNumber,
     data_if_name: Option<(StringIndex, &'static str)>,
     read_ep: EndpointOut<'a, B>,
@@ -52,13 +53,13 @@ pub struct CdcAcmClass<'a, B: UsbBus> {
     rts: bool,
 }
 
-impl<'a, B: UsbBus> CdcAcmClass<'a, B> {
+impl<'a, B: UsbBus, C: EndpointDirection> CdcAcmClass<'a, B, C> {
     /// Creates a new CdcAcmClass with the provided UsbBus and max_packet_size in bytes. For
     /// full-speed devices, max_packet_size has to be one of 8, 16, 32 or 64.
     pub fn new<'alloc: 'a>(
         alloc: &'alloc UsbBusAllocator<B>,
         max_packet_size: u16,
-    ) -> CdcAcmClass<'a, B> {
+    ) -> CdcAcmClass<'a, B, C> {
         Self::new_with_interface_names(alloc, max_packet_size, None, None)
     }
 
@@ -70,7 +71,7 @@ impl<'a, B: UsbBus> CdcAcmClass<'a, B> {
         max_packet_size: u16,
         comm_if_name: Option<&'static str>,
         data_if_name: Option<&'static str>,
-    ) -> CdcAcmClass<'a, B> {
+    ) -> CdcAcmClass<'a, B, C> {
         let comm_if_name = comm_if_name.map(|s| (alloc.string(), s));
         let data_if_name = data_if_name.map(|s| (alloc.string(), s));
         CdcAcmClass {
@@ -145,7 +146,7 @@ impl<'a, B: UsbBus> CdcAcmClass<'a, B> {
     }
 }
 
-impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
+impl<B: UsbBus, C: EndpointDirection> UsbClass<B> for CdcAcmClass<'_, B, C> {
     fn get_configuration_descriptors(&self, writer: &mut DescriptorWriter) -> Result<()> {
         writer.iad(
             self.comm_if,

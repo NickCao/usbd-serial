@@ -1,6 +1,6 @@
 use super::SerialPort;
 use core::borrow::BorrowMut;
-use usb_device::bus::UsbBus;
+use usb_device::{bus::UsbBus, endpoint::EndpointDirection};
 
 #[derive(Debug)]
 pub struct Error(usb_device::UsbError);
@@ -23,14 +23,14 @@ impl embedded_io::Error for Error {
     }
 }
 
-impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::ErrorType
-    for SerialPort<'_, Bus, RS, WS>
+impl<Bus: UsbBus, C: EndpointDirection, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::ErrorType
+    for SerialPort<'_, Bus, C, RS, WS>
 {
     type Error = Error;
 }
 
-impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Read
-    for SerialPort<'_, Bus, RS, WS>
+impl<Bus: UsbBus, C: EndpointDirection, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Read
+    for SerialPort<'_, Bus, C, RS, WS>
 {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
         loop {
@@ -45,8 +45,8 @@ impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Read
     }
 }
 
-impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::ReadReady
-    for SerialPort<'_, Bus, RS, WS>
+impl<Bus: UsbBus, C: EndpointDirection, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::ReadReady
+    for SerialPort<'_, Bus, C, RS, WS>
 {
     fn read_ready(&mut self) -> Result<bool, Self::Error> {
         self.poll()?;
@@ -54,8 +54,8 @@ impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::ReadRea
     }
 }
 
-impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Write
-    for SerialPort<'_, Bus, RS, WS>
+impl<Bus: UsbBus, C: EndpointDirection, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Write
+    for SerialPort<'_, Bus, C, RS, WS>
 {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         if buf.is_empty() {
@@ -78,8 +78,8 @@ impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::Write
     }
 }
 
-impl<Bus: UsbBus, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::WriteReady
-    for SerialPort<'_, Bus, RS, WS>
+impl<Bus: UsbBus, C: EndpointDirection, RS: BorrowMut<[u8]>, WS: BorrowMut<[u8]>> embedded_io::WriteReady
+    for SerialPort<'_, Bus, C, RS, WS>
 {
     fn write_ready(&mut self) -> Result<bool, Self::Error> {
         Ok(self.write_buf.available_write() != 0)
