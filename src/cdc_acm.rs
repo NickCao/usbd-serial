@@ -14,7 +14,6 @@ const CDC_PROTOCOL_NONE: u8 = 0x00;
 
 const CS_INTERFACE: u8 = 0x24;
 const CDC_TYPE_HEADER: u8 = 0x00;
-const CDC_TYPE_CALL_MANAGEMENT: u8 = 0x01;
 const CDC_TYPE_ACM: u8 = 0x02;
 const CDC_TYPE_UNION: u8 = 0x06;
 
@@ -42,7 +41,6 @@ const REQ_SET_CONTROL_LINE_STATE: u8 = 0x22;
 pub struct CdcAcmClass<'a, B: UsbBus> {
     comm_if: InterfaceNumber,
     comm_if_name: Option<(StringIndex, &'static str)>,
-    comm_ep: EndpointIn<'a, B>,
     data_if: InterfaceNumber,
     data_if_name: Option<(StringIndex, &'static str)>,
     read_ep: EndpointOut<'a, B>,
@@ -76,7 +74,6 @@ impl<'a, B: UsbBus> CdcAcmClass<'a, B> {
         CdcAcmClass {
             comm_if: alloc.interface(),
             comm_if_name,
-            comm_ep: alloc.interrupt(8, 255),
             data_if: alloc.interface(),
             data_if_name,
             read_ep: alloc.bulk(max_packet_size),
@@ -156,6 +153,8 @@ impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
             None,
         )?;
 
+        // [USBCDC1.2] 5.1.3 Interface Descriptor
+        // [USBCDC1.2] Table 9: Communications Class Interface Descriptor Requirements
         writer.interface_alt(
             self.comm_if,
             DEFAULT_ALTERNATE_SETTING,
@@ -165,6 +164,8 @@ impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
             self.comm_if_name.map(|n| n.0),
         )?;
 
+        // [USBCDC1.2] 5.2.3 Functional Descriptors
+        // [USBCDC1.2] 5.2.3.1 Header Functional Descriptor
         writer.write(
             CS_INTERFACE,
             &[
@@ -174,6 +175,7 @@ impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
             ],
         )?;
 
+        // [USBPSTN1.2] 5.3.2 Abstract Control Management Functional Descriptor
         writer.write(
             CS_INTERFACE,
             &[
@@ -182,6 +184,7 @@ impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
             ],
         )?;
 
+        // [USBCDC1.2] 5.2.3.2 Union Functional Descriptor
         writer.write(
             CS_INTERFACE,
             &[
@@ -191,17 +194,7 @@ impl<B: UsbBus> UsbClass<B> for CdcAcmClass<'_, B> {
             ],
         )?;
 
-        writer.write(
-            CS_INTERFACE,
-            &[
-                CDC_TYPE_CALL_MANAGEMENT, // bDescriptorSubtype
-                0x00,                     // bmCapabilities
-                self.data_if.into(),      // bDataInterface
-            ],
-        )?;
-
-        writer.endpoint(&self.comm_ep)?;
-
+        // Table 10: Data Class Interface Descriptor Requirements
         writer.interface_alt(
             self.data_if,
             DEFAULT_ALTERNATE_SETTING,
